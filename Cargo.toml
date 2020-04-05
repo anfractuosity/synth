@@ -1,0 +1,11 @@
+[package]
+name = "synth"
+version = "0.1.0"
+authors = ["anfractuosity"]
+
+[dependencies]
+udev = { git = "https://github.com/Smithay/udev-rs" }
+evdev = { git = "https://github.com/anfractuosity/evdev" }
+twang = { git = "https://github.com/RedAldaron/twang" }
+adi = "*"
+libc = "*"
