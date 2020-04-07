@@ -28,3 +28,4 @@ systemctl --user start pulseaudio.service
 # To Do
 
 * Better error handling - e.g. if fields in the .toml config file aren't present
+* Stop audio loop using 100% of a CPU core
