@@ -70,7 +70,6 @@ fn process(dev: String, config : Config, device_data : Arc<Mutex<HashSet<String>
     let mut found = false;
 
     for (i, d) in devices.iter().enumerate() {
-        //println!("{}: {:?}", i, d.name());
         if d.name().clone().into_string().unwrap().contains(&dev) {
             pos = i;
             found = true;
@@ -211,7 +210,6 @@ fn main() {
         speaker.update(&mut || {
 
             // Obtain sample and advance, for each potential tone
-            //let mut samps: Vec<twang::Sample> = vec![];
             let mut play_samps: Vec<twang::Sample> = vec![];
             {
                 let device_data = Arc::clone(&data);

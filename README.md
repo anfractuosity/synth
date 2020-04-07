@@ -24,3 +24,7 @@ Re-enable pulseaudio when finished:
 systemctl --user start pulseaudio.socket
 systemctl --user start pulseaudio.service
 ```
+
+# To Do
+
+* Better error handling - e.g. if fields in the .toml config file aren't present
