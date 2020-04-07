@@ -15,7 +15,7 @@ Run the synth (needs root to monitor events):
 
 ```
 cargo build
-sudo ./target/debug/synth
+sudo -E cargo run
 ```
 
 Re-enable pulseaudio when finished:
