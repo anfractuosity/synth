@@ -1,0 +1,18 @@
+[[usb]]
+port = "2-1"
+tone = 100.0
+
+[[usb]]
+port = "1-2.2"
+tone = 200.0
+
+[[usb]]
+port = "1-2.3"
+tone = 300.0
+
+[[usb]]
+port = "1-2.4"
+tone = 400.0
+
+[lid]
+tone = 500.0

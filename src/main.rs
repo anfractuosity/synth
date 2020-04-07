@@ -1,8 +1,12 @@
 extern crate adi;
 extern crate evdev;
 extern crate libc;
-extern crate twang; 
+extern crate twang;
+extern crate serde_derive; 
+extern crate toml;
 
+use std::collections::HashMap;
+use serde_derive::Deserialize;
 use libc::{c_int, c_short, c_ulong, c_void};
 use std::collections::HashSet;
 use std::os::unix::io::AsRawFd;
@@ -10,9 +14,28 @@ use std::ptr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{thread};
+use std::fs;
+use std::fs::{File, OpenOptions};
 use adi::speaker::Speaker;
 use twang::prelude::SampleSlice;
 use twang::Sound;
+
+#[derive(Deserialize,Clone)]
+struct Usb {
+    port: String,
+    tone: f64
+}
+
+#[derive(Deserialize,Clone)]
+struct Lid {
+    tone: f64
+}
+
+#[derive(Deserialize,Clone)]
+struct Config {
+    usb: Vec<Usb>,
+    lid: Option<Lid>,
+}
 
 // Following structs used for udev operations
 #[repr(C)]
@@ -40,25 +63,45 @@ extern "C" {
 type nfds_t = c_ulong;
 
 // Used for handling evdev events
-fn process(dev: String) {
+fn process(dev: String, config : Config, device_data : Arc<Mutex<HashSet<String>>>) {
     let mut d;
     let mut pos: usize = 0;
     let mut devices = evdev::enumerate();
+    let mut found = false;
 
     for (i, d) in devices.iter().enumerate() {
         //println!("{}: {:?}", i, d.name());
         if d.name().clone().into_string().unwrap().contains(&dev) {
             pos = i;
+            found = true;
             break;
         }
     }
-
+    
+    if !found {
+        return;
+    }
+    
     d = devices.swap_remove(pos);
 
     loop {
         for ev in d.events_no_sync().unwrap() {
-            if ev._type != 0 && ev.value == 1 {
-                println!("{} {} {}", dev, ev._type, ev.value);
+            if ev._type != 0 {
+                
+                let mut tone = -1.0;
+                if dev == "Lid" {
+                    tone = config.clone().lid.unwrap().tone ;
+                }
+
+                if tone > 0.0 {
+                    if ev.value != 0 {
+                        let mut d = device_data.lock().unwrap();
+                        d.insert(format!("{}#{}",dev,tone));
+                    } else {
+                        let mut d = device_data.lock().unwrap();
+                        d.remove(&(format!("{}#{}",dev,tone)));
+                    }
+                }
             }
         }
     }
@@ -66,8 +109,15 @@ fn process(dev: String) {
 
 fn main() {
 
+    let config_file = "synth.toml";
+
+    let contents = fs::read_to_string(config_file)
+        .expect("Config file not found");
+
+    let config: Config = toml::from_str(&contents).unwrap();
+
     // Hold information on what device events have occured
-    let dat: HashSet<usize> = HashSet::new();
+    let mut dat: HashSet<String> = HashSet::new();
     let data = Arc::new(Mutex::new(dat));
 
     let mut speaker = Speaker::new(0, false).unwrap();
@@ -78,12 +128,15 @@ fn main() {
     let devices = vec!["Headphone", "Lid", "Video Bus"];
 
     for dev in devices {
+        let cfg = config.clone();
+        let data = Arc::clone(&data);
         thread::spawn(move || {
-            process(dev.to_string());
+            process(dev.to_string(),cfg,data);
         });
     }
 
     let device_data = Arc::clone(&data);
+    let config_tmp = config.clone();
 
     // Handle USB events
     thread::spawn(move || {
@@ -121,53 +174,55 @@ fn main() {
                 }
             };
 
+            let etype = format!("{}", event.event_type()) ;
+
             if event.subsystem().map_or("", |s| s.to_str().unwrap_or("")) == "usb"
-                && (format!("{}", event.event_type()) == "add"
-                    || format!("{}", event.event_type()) == "remove")
-            {
-                let tone = event.sysname().to_str().unwrap_or("");
-                let id: Vec<&str> = tone.split(".").collect();
-                let mut usb_bus: usize = 0;
+                && (etype == "add" || etype == "remove"){
+                let usbport = event.sysname().to_str().unwrap_or("");
 
-                if tone.contains(".") {
-                    usb_bus = id[1].parse().unwrap();
-                    usb_bus -= 1;
-                }
+                println!("USB info: {} {}",etype,usbport);
 
-                if format!("{}", event.event_type()) == "add" {
-                    let mut d = device_data.lock().unwrap();
-                    d.insert(usb_bus as usize);
-                } else if format!("{}", event.event_type()) == "remove" {
-                    let mut d = device_data.lock().unwrap();
-                    d.remove(&(usb_bus as usize));
+                for usb in &config_tmp.usb {
+                    if usb.port == usbport {                   
+                        if etype == "add" {
+                            let mut d = device_data.lock().unwrap();
+                            d.insert(format!("{}#{}",usb.port,usb.tone));
+                        } else if etype == "remove" {
+                            let mut d = device_data.lock().unwrap();
+                            d.remove(&(format!("{}#{}",usb.port,usb.tone)));
+                        }
+ 
+                    }
                 }
             }
         }
     });
 
     // Generate a number of potential tones to select from
-    let mut snds = vec![];
-    for x in 1..10 {
-        snds.push(Sound::new(None, 400.0 + (x as f64 * 100.0)));
+    let mut snds = HashMap::new();
+    for x in &config.usb {
+        snds.insert(format!("{}#{}",x.port,x.tone),Sound::new(None,x.tone));
     }
 
+    let ltone = config.lid.unwrap().tone;
+    snds.insert(format!("Lid#{}",ltone),Sound::new(None,ltone));
+    
     loop {
         speaker.update(&mut || {
 
             // Obtain sample and advance, for each potential tone
-            let mut samps: Vec<twang::Sample> = vec![];
-            for v in &mut snds {
-                samps.push(v.next().unwrap().har(&piano));
-            }
-
-            // Obtain which samples we will play
+            //let mut samps: Vec<twang::Sample> = vec![];
             let mut play_samps: Vec<twang::Sample> = vec![];
-
             {
                 let device_data = Arc::clone(&data);
                 let d = device_data.lock().unwrap();
                 for v in &*d {
-                    play_samps.push(samps[*v]);
+                    for (key,value) in &mut snds {
+                        let val = value.next().unwrap().har(&piano);
+                        if key == v {
+                            play_samps.push(val);
+                        } 
+                    }
                 }
             }
 

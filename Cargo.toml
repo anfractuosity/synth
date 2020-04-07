@@ -9,3 +9,6 @@ evdev = { git = "https://github.com/anfractuosity/evdev" }
 twang = { git = "https://github.com/RedAldaron/twang" }
 adi = "*"
 libc = "*"
+toml = "*"
+serde = "*"
+serde_derive = "*"
