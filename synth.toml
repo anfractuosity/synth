@@ -1,18 +1,18 @@
 [[usb]]
-port = "2-1"
-tone = 100.0
+port = "1-1"
+tone = 174.61
 
 [[usb]]
 port = "1-2.2"
-tone = 200.0
+tone = 196.0
 
 [[usb]]
 port = "1-2.3"
-tone = 300.0
+tone = 220.0
 
 [[usb]]
 port = "1-2.4"
-tone = 400.0
+tone = 246.94
 
 [lid]
-tone = 500.0
+tone = 261.63

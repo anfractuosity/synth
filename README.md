@@ -4,6 +4,8 @@ A synth controlled by unplugging and plugging devices into your computer (e.g. p
 
 Different usb ports, give different tones!
 
+See the amazing(ly terrible) video here https://www.youtube.com/watch?v=rY7_q5ujVkw
+
 This makes use of alsa, so first stop pulseaudio if necessary:
 
 ```
