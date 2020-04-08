@@ -29,6 +29,8 @@ systemctl --user start pulseaudio.socket
 systemctl --user start pulseaudio.service
 ```
 
+Using the laptop lid for controlling something was inspired by this excellent repo for generating morse code with your laptop - https://github.com/veggiedefender/open-and-shut
+
 # To Do
 
 * Better error handling - e.g. if fields in the .toml config file aren't present
